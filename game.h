@@ -4,17 +4,23 @@
 #include <QGraphicsScene>
 #include <QGraphicsView>
 #include <QWidget>
-#include <QMouseEvent>
+#include <QPointF>
+
+class Board; // forward declaration
 
 class Game: public QGraphicsView
 {
+    Q_OBJECT
+
+public slots:
+    void check_valid_move(QPointF start_pos, QPointF end_pos);
+
 public:
     Game(QWidget *parent = 0);
     QGraphicsScene *scene;
-    std::vector<std::vector<int>> state;
 
-protected:
-    void mousePressEvent(QMouseEvent *event);
+    std::vector<std::vector<int>> state;
+    double board_width;
 };
 
 #endif // GAME_H

@@ -1,18 +1,22 @@
 #ifndef BOARD_H
 #define BOARD_H
 
+#include <QGraphicsItemGroup>
 #include <QGraphicsScene>
-#include <piece.h>
+#include <QGraphicsPixmapItem>
+#include <vector>
 
-class Board {
+class Board : public QGraphicsItemGroup {
 public:
-    Board(QGraphicsScene* scene, double width);
-    void drawBoard();
+    Board(double width, std::vector<std::vector<int>> &state);
+    void drawPieces(std::vector<std::vector<int>> &state);
+
+    QRectF boundingRect() const override;
+    void paint(QPainter *painter, const QStyleOptionGraphicsItem *option, QWidget *widget = nullptr) override;
 
 private:
-    int width;
-    QGraphicsScene* scene;
-    Piece* state[8][8];
+    double width; // Width of the board
+    std::vector<QGraphicsPixmapItem*> pieces;
 };
 
 #endif // BOARD_H

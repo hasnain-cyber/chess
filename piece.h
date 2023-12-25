@@ -2,18 +2,19 @@
 #define PIECE_H
 
 #include <string>
-#include <QPixmap>
+#include <QGraphicsItem>
 
-class Piece
-{
+class Piece : public QGraphicsItem {
 public:
-    Piece(std::string character_code = "\u003F", int color = 0);
-    QPixmap generatePixmapFromCharacterCode();
+    Piece(std::string character_code = "\u003F", int id = 0, int width = 100);
+
+    QRectF boundingRect() const override;
+    void paint(QPainter *painter, const QStyleOptionGraphicsItem *option, QWidget *widget = nullptr) override;
 
 private:
     std::string character_code;
-    // 0 for black, 1 for white
-    int color;
+    int id;
+    int width;
 };
 
 #endif // PIECE_H

@@ -1,9 +1,7 @@
 #include "game.h"
-#include <QWidget>
-#include <QGraphicsView>
-#include <QGraphicsRectItem>
-#include <QDebug>
+#include <piece.h>
 #include <board.h>
+#include <QDebug>
 
 Game::Game(QWidget *parent): QGraphicsView(parent) {
     // create scene
@@ -15,7 +13,30 @@ Game::Game(QWidget *parent): QGraphicsView(parent) {
     setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     setFixedSize(800, 800);
 
-    // draw board
-    Board* board = new Board(scene, this->width());
-    board->drawBoard();
+    // initialise a clean state
+    // 0 for empty state
+    // 1 for pawn
+    // 2 for knight
+    // 3 for bishop
+    // 4 for rook
+    // 5 for queen
+    // 6 for king
+    state = {
+        {-4, -2, -3, -5, -6, -3, -2, -4},
+        {-1, -1, -1, -1, -1, -1, -1, -1},
+        { 0,  0,  0,  0,  0,  0,  0,  0},
+        { 0,  0,  0,  0,  0,  0,  0,  0},
+        { 0,  0,  0,  0,  0,  0,  0,  0},
+        { 0,  0,  0,  0,  0,  0,  0,  0},
+        { 1,  1,  1,  1,  1,  1,  1,  1},
+        { 4,  2,  3,  5,  6,  3,  2,  4}
+    };
+
+    // add board
+    Board* board = new Board(this->width(), state);
+    scene->addItem(board);
+}
+
+void Game::mousePressEvent(QMouseEvent *event) {
+    qDebug() << "clicked";
 }

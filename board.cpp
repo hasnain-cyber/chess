@@ -1,57 +1,94 @@
 #include "board.h"
-#include <QGraphicsRectItem>
 #include <piece.h>
+#include <game.h>
+#include <QPainter>
+#include <QGraphicsScene>
+#include <QDebug>
 
-Board::Board(QGraphicsScene* scene, double width) : width(width), scene(scene) {}
+Board::Board(double width, std::vector<std::vector<int>> &state) : width(width) {
+    drawPieces(state);
+}
 
-void Board::drawBoard() {
-    double side_length = width / 8;
-
+void Board::drawPieces(std::vector<std::vector<int>> &state) {
     for (int i = 0; i < 8; ++i) {
         for (int j = 0; j < 8; ++j) {
-            QGraphicsRectItem* cell = new QGraphicsRectItem(j * side_length, i * side_length, side_length, side_length);
-            cell->setBrush(QBrush(((i + j) & 1) ? Qt::white : Qt::darkGray));
-
-            scene->addItem(cell);
-            Piece *piece = NULL;
-
-            if (i == 0) {
-                if (j == 0 || j == 7) {
-                    piece = new Piece("\u265C", 0); // black rook
-                } else if (j == 1 || j == 6) {
-                    piece = new Piece("\u265E", 0); // black knight
-                } else if (j == 2 || j == 5) {
-                    piece = new Piece("\u265D", 0); // black bishop
-                } else if (j == 3) {
-                    piece = new Piece("\u265B", 0); // black queen
-                } else if (j == 4) {
-                    piece = new Piece("\u265A", 0); // black king
+            int pieceId = state[i][j];
+            if (pieceId != 0) { // -1 indicates an empty tile
+                std::string character_code;
+                switch (pieceId) {
+                case -1:
+                    character_code = "\u2659"; // Black Pawn
+                    break;
+                case -2:
+                    character_code = "\u2658"; // Black Knight
+                    break;
+                case -3:
+                    character_code = "\u2657"; // Black Bishop
+                    break;
+                case -4:
+                    character_code = "\u2656"; // Black Rook
+                    break;
+                case -5:
+                    character_code = "\u2655"; // Black Queen
+                    break;
+                case -6:
+                    character_code = "\u2654"; // Black King
+                    break;
+                case 1:
+                    character_code = "\u265F"; // White Pawn
+                    break;
+                case 2:
+                    character_code = "\u265E"; // White Knight
+                    break;
+                case 3:
+                    character_code = "\u265D"; // White Bishop
+                    break;
+                case 4:
+                    character_code = "\u265C"; // White Rook
+                    break;
+                case 5:
+                    character_code = "\u265B"; // White Queen
+                    break;
+                case 6:
+                    character_code = "\u265A"; // White King
+                    break;
+                default:
+                    character_code = "\u25A1"; // Empty Tile
+                    break;
                 }
-            } else if (i == 1) {
-                piece = new Piece("\u265F", 0); // black pawn
-            } else if (i == 6) {
-                piece = new Piece("\u2659", 1); // white pawn
-            } else if (i == 7) {
-                if (j == 0 || j == 7) {
-                    piece = new Piece("\u2656", 1); // white rook
-                } else if (j == 1 || j == 6) {
-                    piece = new Piece("\u2658", 1); // white knight
-                } else if (j == 2 || j == 5) {
-                    piece = new Piece("\u2657", 1); // white bishop
-                } else if (j == 3) {
-                    piece = new Piece("\u2655", 1); // white queen
-                } else if (j == 4) {
-                    piece = new Piece("\u2654", 1); // white king
-                }
-            }
 
-            if (piece != NULL) {
-                QPixmap pixmap = piece->generatePixmapFromCharacterCode();
-                QGraphicsPixmapItem* pixmapItem = new QGraphicsPixmapItem(pixmap);
-                pixmapItem->setPos(j * side_length + (side_length - pixmap.width()) / 2, i * side_length + (side_length - pixmap.height()) / 2);
-
-                scene->addItem(pixmapItem);
+                double side_width = width / 8.0;
+                Piece* piece = new Piece(character_code, pieceId, side_width);
+                piece->setPos(j * side_width, (7 - i) * side_width);
+                addToGroup(piece);
             }
+        }
+    }
+}
+
+QRectF Board::boundingRect() const {
+    // Calculate the combined bounding rect of the board and pieces
+    QRectF boardBoundingRect = QRectF(0, 0, width, width);
+    for (auto pixmapItem : pieces) {
+        boardBoundingRect = boardBoundingRect.united(pixmapItem->boundingRect());
+    }
+    return boardBoundingRect;
+}
+
+void Board::paint(QPainter *painter, const QStyleOptionGraphicsItem *option, QWidget *widget) {
+    Q_UNUSED(option);
+    Q_UNUSED(widget);
+
+    double side_length = width / 8;
+
+    // Drawing the chessboard
+    for (int i = 0; i < 8; ++i) {
+        for (int j = 0; j < 8; ++j) {
+            painter->save();
+            painter->setPen(Qt::NoPen);
+            painter->setBrush(QBrush(((i + j) & 1) ? Qt::darkGray : Qt::white));
+            painter->drawRect(j * side_length, i * side_length, side_length, side_length);
+            painter->restore();
         }
     }
 }

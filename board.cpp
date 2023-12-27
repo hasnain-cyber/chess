@@ -12,7 +12,42 @@ Board::Board(Game *game) {
     updateBoard(game);
 }
 
-void Board::drawPieces(Game *game) {
+QRectF Board::boundingRect() const {
+    return QRectF(0, 0, board_width, board_width);
+}
+
+void Board::paint(QPainter *painter, const QStyleOptionGraphicsItem *option, QWidget *widget) {
+    Q_UNUSED(option);
+    Q_UNUSED(widget);
+
+    double side_length = board_width / 8;
+
+    // Drawing the chessboard
+    for (int i = 0; i < 8; ++i) {
+        for (int j = 0; j < 8; ++j) {
+            painter->save();
+            painter->setPen(Qt::NoPen);
+            painter->setBrush(QBrush(((i + j) & 1) ? Qt::darkGray : Qt::white));
+            painter->drawRect(j * side_length, i * side_length, side_length, side_length);
+            painter->restore();
+        }
+    }
+}
+
+void Board::updateBoard(Game *game) {
+    // clear connections
+    for (const auto& connection : connections) {
+        QObject::disconnect(connection);
+    }
+    connections.clear();
+
+    // clear the pieces
+    for (auto item : childItems()) {
+        removeFromGroup(item);
+        delete item;
+    }
+
+    // redraw pieces
     for (int i = 0; i < 8; ++i) {
         for (int j = 0; j < 8; ++j) {
             int pieceId = game->state[i][j];
@@ -69,43 +104,4 @@ void Board::drawPieces(Game *game) {
             }
         }
     }
-}
-
-QRectF Board::boundingRect() const {
-    return QRectF(0, 0, board_width, board_width);
-}
-
-void Board::paint(QPainter *painter, const QStyleOptionGraphicsItem *option, QWidget *widget) {
-    Q_UNUSED(option);
-    Q_UNUSED(widget);
-
-    double side_length = board_width / 8;
-
-    // Drawing the chessboard
-    for (int i = 0; i < 8; ++i) {
-        for (int j = 0; j < 8; ++j) {
-            painter->save();
-            painter->setPen(Qt::NoPen);
-            painter->setBrush(QBrush(((i + j) & 1) ? Qt::darkGray : Qt::white));
-            painter->drawRect(j * side_length, i * side_length, side_length, side_length);
-            painter->restore();
-        }
-    }
-}
-
-void Board::updateBoard(Game *game) {
-    // clear connections
-    for (const auto& connection : connections) {
-        QObject::disconnect(connection);
-    }
-    connections.clear();
-
-    // clear the pieces
-    for (auto item : childItems()) {
-        removeFromGroup(item);
-        delete item;
-    }
-
-    // redraw pieces
-    drawPieces(game);
 }

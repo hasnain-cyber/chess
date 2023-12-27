@@ -12,7 +12,6 @@ class Game; // forward declaration
 class Board : public QGraphicsItemGroup {
 public:
     Board(Game *game);
-    void drawPieces(Game *game);
     void updateBoard(Game* game);
 
     QRectF boundingRect() const override;

@@ -21,6 +21,10 @@ public:
 
     std::vector<std::vector<int>> state;
     double board_width;
+
+private:
+    bool check_check(int color);
+    bool check_checkmate(int color);
 };
 
 #endif // GAME_H

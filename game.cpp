@@ -2,6 +2,8 @@
 #include <piece.h>
 #include <board.h>
 #include <QDebug>
+#include <QMessageBox>
+#include <vector>
 
 Game::Game(QWidget *parent): QGraphicsView(parent) {
     // create scene
@@ -50,14 +52,7 @@ Game::Game(QWidget *parent): QGraphicsView(parent) {
     scene->addItem(board);
 }
 
-void Game::check_valid_move(QPointF start_pos, QPointF end_pos) {
-    // Convert positions to indices
-    double side_width = board_width / 8.0;
-    int i1 = start_pos.y() / side_width;
-    int j1 = start_pos.x() / side_width;
-    int i2 = end_pos.y() / side_width;
-    int j2 = end_pos.x() / side_width;
-
+bool Game::check_valid_move(int i1, int j1, int i2, int j2) {
     bool valid;
     switch (abs(state[i1][j1])) {
     case 1:
@@ -164,7 +159,17 @@ void Game::check_valid_move(QPointF start_pos, QPointF end_pos) {
     // should not be on the same tile
     valid &= (!(i1 == i2 && j1 == j2));
 
-    if (valid) {
+    return valid;
+}
+
+void Game::use_move(QPointF start_pos, QPointF end_pos) {
+    double side_width = board_width / 8.0;
+    int i1 = start_pos.y() / side_width;
+    int j1 = start_pos.x() / side_width;
+    int i2 = end_pos.y() / side_width;
+    int j2 = end_pos.x() / side_width;
+
+    if (check_valid_move(i1, j1, i2, j2)) {
         state[i2][j2] = state[i1][j1];
         state[i1][j1] = 0;
     }
@@ -177,7 +182,22 @@ void Game::check_valid_move(QPointF start_pos, QPointF end_pos) {
         }
     }
 
-    qDebug() << check_checkmate(-1);
+    turn *= -1;
+
+    if (check_checkmate(-1)) {
+        show_checkmate_dialog(1);
+        return;
+    }
+
+    if (check_checkmate(1)) {
+        show_checkmate_dialog(-1);
+        return;
+    }
+
+    // if it is black's turn, use bot to play a move
+    if (turn == -1) {
+        play_bot_move(2);
+    }
 }
 
 // 1 for white, -1 for black
@@ -316,7 +336,6 @@ bool Game::check_checkmate(int color) {
 
             // Check if the move resolves the check
             if (!check_check(color)) {
-                qDebug() << i << " " << j;
                 // Revert the simulated move and return false (not in checkmate)
                 state[kingRow][kingCol] = state[i][j];
                 state[i][j] = temp;
@@ -330,4 +349,287 @@ bool Game::check_checkmate(int color) {
     }
 
     return true; // King is in checkmate
+}
+
+void Game::show_checkmate_dialog(int color) {
+    QMessageBox msgBox;
+    msgBox.setWindowTitle("Game Over");
+
+    if (color == 1) {
+        msgBox.setText("Checkmate! White wins!");
+    } else {
+        msgBox.setText("Checkmate! Black wins!");
+    }
+
+    msgBox.setStandardButtons(QMessageBox::Ok);
+    msgBox.setDefaultButton(QMessageBox::Ok);
+    msgBox.exec();
+}
+
+int Game::get_value(int i, int j) {
+    int piece_value = state[i][j];
+
+    int value = 0;
+    switch (abs(piece_value)) {
+    case 1: // Pawn
+        value = 2;
+        break;
+    case 3: // Bishop
+    case 4: // Rook
+        value = 10;
+        break;
+    case 2: // Knight
+        value = 20;
+        break;
+    case 5: // Queen
+        value = 50;
+        break;
+    case 6: // King
+        value = 100; // Value for king
+        break;
+    default:
+        // Handle invalid piece or empty square
+        break;
+    }
+
+    return value * (piece_value > 0 ? 1: -1);
+}
+
+int Game::evaluate_board() {
+    if (check_checkmate(1)) {
+        return -10000; // white is checkmated
+    } else if (check_checkmate(-1)) {
+        return 10000; // black is checkmated
+    }
+
+    int total_value = 0;
+
+    for (int i = 0; i < 8; ++i) {
+        for (int j = 0; j < 8; ++j) {
+            int piece_value = get_value(i, j);
+            total_value += piece_value;
+        }
+    }
+
+    return total_value;
+}
+
+int Game::play_bot_move(int depth) {
+    if (depth == 0) return evaluate_board();
+
+    int best_move = INT_MIN; // Initialize with a low value for maximizing
+
+    // Variables to store the best move positions
+    int best_i = -1, best_j = -1, best_i2 = -1, best_j2 = -1;
+
+    for(int i = 0; i < 8; i++) {
+        for(int j = 0; j < 8; j++) {
+            if (turn * state[i][j] > 0) {
+                switch(abs(state[i][j])) {
+                case 1: // Pawn
+                {
+                    std::vector<int> di = {-1 * turn, -1 * turn, -1 * turn, -2 * turn}, dj = {0, 1, -1, 0};
+                    for(int k = 0; k < 3; k++) {
+                        int i2 = i + di[k], j2 = j + dj[k];
+                        if (check_valid_move(i, j, i2, j2)) {
+                            int temp = state[i2][j2];
+                            state[i2][j2] = state[i][j];
+                            state[i][j] = 0;
+
+                            int move_value = turn * play_bot_move(depth - 1);
+
+                            state[i][j] = state[i2][j2];
+                            state[i2][j2] = temp;
+
+                            if (move_value > best_move) {
+                                best_move = move_value;
+                                // Store the best move positions
+                                best_i = i;
+                                best_j = j;
+                                best_i2 = i2;
+                                best_j2 = j2;
+                            }
+                        }
+                    }
+                }
+                break;
+                case 2: // Knight
+                {
+                    std::vector<int> di = {-2, -1, 1, 2, 2, 1, -1, -2};
+                    std::vector<int> dj = {1, 2, 2, 1, -1, -2, -2, -1};
+                    for (int k = 0; k < 8; ++k) {
+                        int i2 = i + di[k], j2 = j + dj[k];
+                        if (i2 < 0 || i2 >= 8 || j2 < 0 || j2 >= 8) continue; // Out of bounds
+                        if (check_valid_move(i, j, i2, j2)) {
+                            int temp = state[i2][j2];
+                            state[i2][j2] = state[i][j];
+                            state[i][j] = 0;
+
+                            int move_value = turn * play_bot_move(depth - 1);
+
+                            state[i][j] = state[i2][j2];
+                            state[i2][j2] = temp;
+
+                            if (move_value > best_move) {
+                                best_move = move_value;
+                                // Store the best move positions
+                                best_i = i;
+                                best_j = j;
+                                best_i2 = i2;
+                                best_j2 = j2;
+                            }
+                        }
+                    }
+                }
+                break;
+                // Inside the switch statement for different pieces
+                case 3: // Bishop
+                {
+                    std::vector<int> di = {-1, -1, 1, 1}, dj = {-1, 1, -1, 1};
+                    for (int k = 0; k < 4; k++) {
+                        for (int step = 1; step < 8; step++) {
+                            int i2 = i + di[k] * step, j2 = j + dj[k] * step;
+                            if (i2 < 0 || i2 >= 8 || j2 < 0 || j2 >= 8) break; // Out of bounds
+                            if (check_valid_move(i, j, i2, j2)) {
+                                int temp = state[i2][j2];
+                                state[i2][j2] = state[i][j];
+                                state[i][j] = 0;
+
+                                int move_value = turn * play_bot_move(depth - 1);
+
+                                state[i][j] = state[i2][j2];
+                                state[i2][j2] = temp;
+
+                                if (move_value > best_move) {
+                                    best_move = move_value;
+                                    // Store the best move positions
+                                    best_i = i;
+                                    best_j = j;
+                                    best_i2 = i2;
+                                    best_j2 = j2;
+                                }
+                            }
+                            if (state[i2][j2] != 0) break; // Occupied square, stop this direction
+                        }
+                    }
+                }
+                break;
+                case 4: // Rook
+                {
+                    std::vector<int> di = {-1, 1, 0, 0}, dj = {0, 0, -1, 1};
+                    for (int k = 0; k < 4; k++) {
+                        for (int step = 1; step < 8; step++) {
+                            int i2 = i + di[k] * step, j2 = j + dj[k] * step;
+                            if (i2 < 0 || i2 >= 8 || j2 < 0 || j2 >= 8) break; // Out of bounds
+                            if (check_valid_move(i, j, i2, j2)) {
+                                int temp = state[i2][j2];
+                                state[i2][j2] = state[i][j];
+                                state[i][j] = 0;
+
+                                int move_value = turn * play_bot_move(depth - 1);
+
+                                state[i][j] = state[i2][j2];
+                                state[i2][j2] = temp;
+
+                                if (move_value > best_move) {
+                                    best_move = move_value;
+                                    // Store the best move positions
+                                    best_i = i;
+                                    best_j = j;
+                                    best_i2 = i2;
+                                    best_j2 = j2;
+                                }
+                            }
+                            if (state[i2][j2] != 0) break; // Occupied square, stop this direction
+                        }
+                    }
+                }
+                break;
+                // Inside the switch statement for different pieces
+                case 5: // Queen
+                {
+                    std::vector<int> di = {-1, -1, -1, 0, 0, 1, 1, 1};
+                    std::vector<int> dj = {-1, 0, 1, -1, 1, -1, 0, 1};
+                    for (int k = 0; k < 8; ++k) {
+                        int i2 = i, j2 = j;
+                        while (true) {
+                            i2 += di[k];
+                            j2 += dj[k];
+                            if (i2 < 0 || i2 >= 8 || j2 < 0 || j2 >= 8) break; // Out of bounds
+                            if (check_valid_move(i, j, i2, j2)) {
+                                int temp = state[i2][j2];
+                                state[i2][j2] = state[i][j];
+                                state[i][j] = 0;
+
+                                int move_value = turn * play_bot_move(depth - 1);
+
+                                state[i][j] = state[i2][j2];
+                                state[i2][j2] = temp;
+
+                                if (move_value > best_move) {
+                                    best_move = move_value;
+                                    // Store the best move positions
+                                    best_i = i;
+                                    best_j = j;
+                                    best_i2 = i2;
+                                    best_j2 = j2;
+                                }
+
+                                if (state[i2][j2] != 0) break; // Cannot move past a non-empty square
+                            } else {
+                                break; // Invalid move
+                            }
+                        }
+                    }
+                }
+                break;
+                // Inside the switch statement for different pieces
+                case 6: // King
+                {
+                    std::vector<int> di = {-1, -1, -1, 0, 0, 1, 1, 1};
+                    std::vector<int> dj = {-1, 0, 1, -1, 1, -1, 0, 1};
+                    for (int k = 0; k < 8; ++k) {
+                        int i2 = i + di[k], j2 = j + dj[k];
+                        if (i2 < 0 || i2 >= 8 || j2 < 0 || j2 >= 8) continue; // Out of bounds
+                        if (check_valid_move(i, j, i2, j2)) {
+                            int temp = state[i2][j2];
+                            state[i2][j2] = state[i][j];
+                            state[i][j] = 0;
+
+                            int move_value = turn * play_bot_move(depth - 1);
+
+                            state[i][j] = state[i2][j2];
+                            state[i2][j2] = temp;
+
+                            if (move_value > best_move) {
+                                best_move = move_value;
+                                // Store the best move positions
+                                best_i = i;
+                                best_j = j;
+                                best_i2 = i2;
+                                best_j2 = j2;
+                            }
+                        }
+                    }
+                }
+                break;
+                default:
+                    break;
+                }
+            }
+        }
+    }
+
+    // After evaluating all possible moves, if a best move is found, execute it
+    if (best_i != -1 && best_j != -1 && best_i2 != -1 && best_j2 != -1) {
+        // Create QPointF positions for the best move
+        double side_width = board_width / 8.0;
+        QPointF start_pos(best_j * side_width, best_i * side_width);
+        QPointF end_pos(best_j2 * side_width, best_i2 * side_width);
+
+        // Call use_move with the best move positions
+        use_move(start_pos, end_pos);
+    }
+
+    return best_move;
 }

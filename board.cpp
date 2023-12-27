@@ -99,7 +99,7 @@ void Board::updateBoard(Game *game) {
                 Piece *piece = new Piece(character_code, pieceId, side_width);
                 piece->setPos(j * side_width, i * side_width);
                 addToGroup(piece);
-                QMetaObject::Connection connection = QObject::connect(piece, SIGNAL(piece_release_signal(QPointF,QPointF)), game, SLOT(check_valid_move(QPointF,QPointF)));
+                QMetaObject::Connection connection = QObject::connect(piece, SIGNAL(piece_release_signal(QPointF,QPointF)), game, SLOT(use_move(QPointF,QPointF)));
                 connections.append(connection);
             }
         }
